@@ -7,9 +7,8 @@
 
 import java.util.*;
 import java.io.*;
-import java.text.DecimalFormat;
 
-public class tiny_gp {
+public class tinyGp {
     double [] fitness;
     char [][] pop;
     static Random rd = new Random();
@@ -18,8 +17,10 @@ public class tiny_gp {
             SUB = 111,
             MUL = 112,
             DIV = 113,
+            SIN = 114,
+            COS = 115,
             FSET_START = ADD,
-            FSET_END = DIV;
+            FSET_END = COS;
     static double [] x = new double[FSET_START];
     static double minrandom, maxrandom;
     static char [] program;
@@ -27,12 +28,14 @@ public class tiny_gp {
     static int varnumber, fitnesscases, randomnumber;
     static double fbestpop = 0.0, favgpop = 0.0;
     static long seed;
-    static double avg_len;
+    static double avgLen;
+    static String currentEquation="";
+    static double SOLVED_THRESHOLD=0.2;
     static final int
         MAX_LEN = 10000,
                 POPSIZE = 100000,
                 DEPTH   = 5,
-                GENERATIONS = 100,
+                GENERATIONS = 5,
                 TSIZE = 2;
     public static final double
         PMUT_PER_NODE  = 0.05,
@@ -54,6 +57,12 @@ public class tiny_gp {
                            else
                                return( num / den );
                        }
+            case SIN:
+                return ( Math.sin( run() ) );
+            case COS:
+                return ( Math.cos( run() ) );
+
+
         }
         return( 0.0 ); // should never get here
     }
@@ -67,12 +76,14 @@ public class tiny_gp {
             case SUB:
             case MUL:
             case DIV:
+            case SIN:
+            case COS:
                 return( traverse( buffer, traverse( buffer, ++buffercount ) ) );
         }
         return( 0 ); // should never get here
     }
 
-    void setup_fitness(String fname) {
+    void setupFitness(String fname) {
         try {
             int i,j;
             String line;
@@ -111,7 +122,7 @@ public class tiny_gp {
         }
     }
 
-    double fitness_function( char [] Prog ) {
+    double fitnessFunction(char [] Prog ) {
         int i = 0, len;
         double result, fit = 0.0;
 
@@ -149,6 +160,9 @@ public class tiny_gp {
                 case SUB:
                 case MUL:
                 case DIV:
+                case SIN:
+                case COS:
+
                     buffer[pos] = prim;
                     one_child = grow( buffer, pos+1, max,depth-1);
                     if ( one_child < 0 )
@@ -159,41 +173,72 @@ public class tiny_gp {
         return( 0 ); // should never get here
     }
 
-    int print_indiv( char []buffer, int buffercounter ) {
+    int printIndiv(char []buffer, int buffercounter ) throws IOException {
         int a1=0, a2;
         if ( buffer[buffercounter] < FSET_START ) {
-            if ( buffer[buffercounter] < varnumber )
-                System.out.print( "X"+ (buffer[buffercounter] + 1 )+ " ");
-            else
+            if ( buffer[buffercounter] < varnumber ){
+                currentEquation+="X"+ (buffer[buffercounter] + 1 );
+                System.out.print("X"+ (buffer[buffercounter] + 1 ));
+            }
+            else{
+                currentEquation+=x[buffer[buffercounter]];
                 System.out.print( x[buffer[buffercounter]]);
+            }
             return( ++buffercounter );
         }
         switch(buffer[buffercounter]) {
             case ADD: System.out.print( "(");
-                      a1=print_indiv( buffer, ++buffercounter );
+                      currentEquation+="(";
+                      a1= printIndiv( buffer, ++buffercounter );
+                      currentEquation+=" + ";
                       System.out.print( " + ");
                       break;
             case SUB: System.out.print( "(");
-                      a1=print_indiv( buffer, ++buffercounter );
+                      currentEquation+="(";
+                      a1= printIndiv( buffer, ++buffercounter );
+                      currentEquation+=" - ";
                       System.out.print( " - ");
                       break;
             case MUL: System.out.print( "(");
-                      a1=print_indiv( buffer, ++buffercounter );
+                      currentEquation+="(";
+                      a1= printIndiv( buffer, ++buffercounter );
+                      currentEquation+=" * ";
                       System.out.print( " * ");
                       break;
             case DIV: System.out.print( "(");
-                      a1=print_indiv( buffer, ++buffercounter );
+                      currentEquation+="(";
+                      a1= printIndiv( buffer, ++buffercounter );
+                      currentEquation+=" / ";
                       System.out.print( " / ");
                       break;
+            case SIN:
+                      System.out.print( "sin(");
+                      currentEquation+="sin(";
+                      a1= printIndiv( buffer, ++buffercounter );
+                      System.out.print(")");
+                      currentEquation+=")";
+
+                      return a1;
+            case COS:
+                System.out.print( "cos(");
+                currentEquation+="cos(";
+                a1= printIndiv( buffer, ++buffercounter );
+                System.out.print(")");
+                currentEquation+=")";
+                return a1;
         }
-        a2=print_indiv( buffer, a1 );
+        a2= printIndiv( buffer, a1 );
+        currentEquation+=")";
         System.out.print( ")");
-        return( a2);
+
+        this.writeTextToFile("equation.txt", currentEquation, true);
+        currentEquation="";
+        return(a2);
     }
 
 
     static char [] buffer = new char[MAX_LEN];
-    char [] create_random_indiv( int depth ) {
+    char [] createRandomIndiv(int depth ) {
         char [] ind;
         int len;
 
@@ -208,19 +253,19 @@ public class tiny_gp {
         return( ind );
     }
 
-    char [][] create_random_pop(int n, int depth, double [] fitness ) {
+    char [][] createRandomPop(int n, int depth, double [] fitness ) {
         char [][]pop = new char[n][];
         int i;
 
         for ( i = 0; i < n; i ++ ) {
-            pop[i] = create_random_indiv( depth );
-            fitness[i] = fitness_function( pop[i] );
+            pop[i] = createRandomIndiv( depth );
+            fitness[i] = fitnessFunction( pop[i] );
         }
         return( pop );
     }
 
 
-    void stats( double [] fitness, char [][] pop, int gen ) {
+    void stats( double [] fitness, char [][] pop, int gen ) throws IOException {
         int i, best = rd.nextInt(POPSIZE);
         int node_count = 0;
         fbestpop = fitness[best];
@@ -234,12 +279,16 @@ public class tiny_gp {
                 fbestpop = fitness[i];
             }
         }
-        avg_len = (double) node_count / POPSIZE;
+        avgLen = (double) node_count / POPSIZE;
         favgpop /= POPSIZE;
         System.out.print("Generation="+gen+" Avg Fitness="+(-favgpop)+
-                " Best Fitness="+(-fbestpop)+" Avg Size="+avg_len+
+                " Best Fitness="+(-fbestpop)+" Avg Size="+ avgLen +
                 "\nBest Individual: ");
-        print_indiv( pop[best], 0 );
+
+        String text = gen+","+(-favgpop)+","+(-fbestpop)+"\n";
+        this.writeTextToFile("generationData.txt", text, true);
+        this.writeTextToFile("equation.txt", "",false);
+        printIndiv( pop[best], 0 );
         System.out.print( "\n");
         System.out.flush();
     }
@@ -258,7 +307,7 @@ public class tiny_gp {
         return( best );
     }
 
-    int negative_tournament( double [] fitness, int tsize ) {
+    int negativeTournament(double [] fitness, int tsize ) {
         int worst = rd.nextInt(POPSIZE), i, competitor;
         double fworst = 1e34;
 
@@ -316,6 +365,8 @@ public class tiny_gp {
                         case SUB:
                         case MUL:
                         case DIV:
+                        case SIN:
+                        case COS:
                             parentcopy[mutsite] =
                                 (char) (rd.nextInt(FSET_END - FSET_START + 1)
                                         + FSET_START);
@@ -325,7 +376,7 @@ public class tiny_gp {
         return( parentcopy );
     }
 
-    void print_parms() {
+    void printParms() {
         System.out.print("-- TINY GP (Java version) --\n");
         System.out.print("SEED="+seed+"\nMAX_LEN="+MAX_LEN+
                 "\nPOPSIZE="+POPSIZE+"\nDEPTH="+DEPTH+
@@ -338,25 +389,25 @@ public class tiny_gp {
                 "\n----------------------------------\n");
     }
 
-    public tiny_gp( String fname, long s ) {
+    public tinyGp(String fname, long s ) {
         fitness =  new double[POPSIZE];
         seed = s;
         if ( seed >= 0 )
             rd.setSeed(seed);
-        setup_fitness(fname);
+        setupFitness(fname);
         for ( int i = 0; i < FSET_START; i ++ )
             x[i]= (maxrandom-minrandom)*rd.nextDouble()+minrandom;
-        pop = create_random_pop(POPSIZE, DEPTH, fitness );
+        pop = createRandomPop(POPSIZE, DEPTH, fitness );
     }
 
-    void evolve() {
+    void evolve() throws IOException {
         int gen = 0, indivs, offspring, parent1, parent2, parent;
         double newfit;
         char []newind;
-        print_parms();
+        printParms();
         stats( fitness, pop, 0 );
         for ( gen = 1; gen < GENERATIONS; gen ++ ) {
-            if (  fbestpop > -1e-5 ) {
+            if (  fbestpop > -SOLVED_THRESHOLD ) {
                 System.out.print("PROBLEM SOLVED\n");
                 System.exit( 0 );
             }
@@ -370,8 +421,8 @@ public class tiny_gp {
                     parent = tournament( fitness, TSIZE );
                     newind = mutation( pop[parent], PMUT_PER_NODE );
                 }
-                newfit = fitness_function( newind );
-                offspring = negative_tournament( fitness, TSIZE );
+                newfit = fitnessFunction( newind );
+                offspring = negativeTournament( fitness, TSIZE );
                 pop[offspring] = newind;
                 fitness[offspring] = newfit;
             }
@@ -381,7 +432,14 @@ public class tiny_gp {
         System.exit( 1 );
     }
 
-    public static void main(String[] args) {
+    public static void writeTextToFile(String fileName, String text, boolean append) throws IOException {
+        BufferedWriter writer = new BufferedWriter(new FileWriter(fileName, append));
+        writer.append(text);
+        writer.close();
+    }
+
+    public static void main(String[] args) throws IOException {
+        writeTextToFile("generationData.txt", "generation,average,best\n",false);
         String fname = "data.txt";
         long s = -1;
 
@@ -392,8 +450,8 @@ public class tiny_gp {
         if ( args.length == 1 ) {
             fname = args[0];
         }
-
-        tiny_gp gp = new tiny_gp(fname, s);
+        SOLVED_THRESHOLD = 0.2;
+        tinyGp gp = new tinyGp(fname, s);
         gp.evolve();
     }
 };
