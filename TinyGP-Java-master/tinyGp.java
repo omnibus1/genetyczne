@@ -35,7 +35,7 @@ public class tinyGp {
         MAX_LEN = 10000,
                 POPSIZE = 100000,
                 DEPTH   = 5,
-                GENERATIONS = 5,
+                GENERATIONS = 20,
                 TSIZE = 2;
     public static final double
         PMUT_PER_NODE  = 0.05,
@@ -217,7 +217,8 @@ public class tinyGp {
                       a1= printIndiv( buffer, ++buffercounter );
                       System.out.print(")");
                       currentEquation+=")";
-
+                      this.writeTextToFile("equation.txt", currentEquation, true);
+                      currentEquation="";
                       return a1;
             case COS:
                 System.out.print( "cos(");
@@ -225,6 +226,8 @@ public class tinyGp {
                 a1= printIndiv( buffer, ++buffercounter );
                 System.out.print(")");
                 currentEquation+=")";
+                this.writeTextToFile("equation.txt", currentEquation, true);
+                currentEquation="";
                 return a1;
         }
         a2= printIndiv( buffer, a1 );
@@ -450,7 +453,7 @@ public class tinyGp {
         if ( args.length == 1 ) {
             fname = args[0];
         }
-        SOLVED_THRESHOLD = 0.2;
+        SOLVED_THRESHOLD = 0.000001;
         tinyGp gp = new tinyGp(fname, s);
         gp.evolve();
     }

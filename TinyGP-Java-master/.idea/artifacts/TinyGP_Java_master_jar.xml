@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="TinyGP-Java-master:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/TinyGP_Java_master_jar</output-path>
+    <root id="archive" name="TinyGP-Java-master.jar">
+      <element id="module-output" name="TinyGP-Java-master" />
+    </root>
+  </artifact>
+</component>
